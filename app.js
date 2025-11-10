@@ -5,83 +5,62 @@ require("dotenv").config();
 const app = express();
 app.use(express.json());
 
-// ✅ Connect to MongoDB
 mongoose
     .connect(process.env.MONGO_URI)
     .then(() => console.log("✅ MongoDB connected successfully"))
     .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// ✅ Define a simple Product schema
-const productSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
-    price: { type: Number, required: true },
-    description: String,
+    email: { type: String, required: true, unique: true },
 });
 
-const Product = mongoose.model("Product", productSchema);
+const User = mongoose.model("User", userSchema);
 
-// ✅ Routes
-
-// Create a new product
-app.post("/products", async (req, res) => {
+app.post("/users", async (req, res) => {
     try {
-        const product = new Product(req.body);
-        const savedProduct = await product.save();
-        res.status(201).json(savedProduct);
+        const user = new User(req.body);
+        await user.save();
+        res.status(201).json({ message: "User created", user });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        res.status(400).json({ error: error.message });
     }
 });
 
-// Get all products
-app.get("/products", async (req, res) => {
+app.get("/users", async (req, res) => {
+    const users = await User.find();
+    res.json(users);
+});
+
+app.get("/users/:id", async (req, res) => {
     try {
-        const products = await Product.find();
-        res.json(products);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: "User not found" });
+        res.json(user);
+    } catch {
+        res.status(400).json({ message: "Invalid ID format" });
     }
 });
 
-// Get product by ID
-app.get("/products/:id", async (req, res) => {
+app.put("/users/:id", async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
-        if (!product) return res.status(404).json({ message: "Product not found" });
-        res.json(product);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+        const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedUser) return res.status(404).json({ message: "User not found" });
+        res.json({ message: "User updated", user: updatedUser });
+    } catch {
+        res.status(400).json({ message: "Update failed" });
     }
 });
 
-// Update product by ID
-app.put("/products/:id", async (req, res) => {
+app.delete("/users/:id", async (req, res) => {
     try {
-        const updatedProduct = await Product.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true }
-        );
-        if (!updatedProduct)
-            return res.status(404).json({ message: "Product not found" });
-        res.json(updatedProduct);
-    } catch (error) {
-        res.status(400).json({ message: error.message });
+        const deletedUser = await User.findByIdAndDelete(req.params.id);
+        if (!deletedUser) return res.status(404).json({ message: "User not found" });
+        res.json({ message: "User deleted" });
+    } catch {
+        res.status(400).json({ message: "Delete failed" });
     }
 });
 
-// Delete product by ID
-app.delete("/products/:id", async (req, res) => {
-    try {
-        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-        if (!deletedProduct)
-            return res.status(404).json({ message: "Product not found" });
-        res.json({ message: "Product deleted successfully" });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-});
-
-// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
